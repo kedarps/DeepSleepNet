@@ -54,7 +54,7 @@ def preTrainingNet(n_feats, n_classes):
     
     return network
     
-def fineTuningNet(n_feats, n_classes):
+def fineTuningNet(n_feats, n_classes, preTrainedNet):
     inLayer = Input(shape=(n_feats, 1), name='inLayer')
     mLayer, (cShape, fShape) = makeConvLayers(inLayer)
     outLayer = Dropout(rate=0.5, name='mDrop1')(mLayer)
@@ -69,6 +69,19 @@ def fineTuningNet(n_feats, n_classes):
     outLayer = Dense(n_classes, activation='softmax', name='outLayer')(outLayer)
     
     network = Model(inLayer, outLayer)
+    
+    # now that we have the network, we will copy the weights from the pretrained network into this network
+    allPreTrainLayers = dict([(layer.name, layer) for layer in preTrainedNet.layers])
+    allFineTuneLayers = dict([(layer.name, layer) for layer in network.layers])
+    
+    allPreTrainLayerNames = [layer.name for layer in preTrainedNet.layers]
+    # we don't need the input and output layers from the pretrained net, so discard them
+    allPreTrainLayerNames = [l for l in allPreTrainLayerNames if l not in ['inLayer', 'outLayer']]
+    
+    # now set weights of fine tune network based on pre train network
+    for l in allPreTrainLayerNames:
+        allFineTuneLayers[l].set_weights(allPreTrainLayers[l].get_weights())
+    
     network.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
     
     return network
